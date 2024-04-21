@@ -1,4 +1,4 @@
-#ESP32 component for BME280
+# ESP32 component for BME280
 
 This component allows to use BME280 sensor for your(my xD) ESP-IDF project. 
 
