@@ -31,7 +31,7 @@ typedef struct
 
 typedef union{
     uint8_t buffer[33];
-    
+
     struct 
     {
         uint16_t dig_t1;
@@ -77,6 +77,16 @@ typedef union{
 
 extern BME280_CalibData_u calibData;
 
-esp_err_t BME280_get_calib_data(i2c_port_t i2c_num);
+typedef struct {
+    uint8_t data_msb;
+    uint8_t data_lsb;
+    uint8_t data_xlsb;
+}BME280_DataRecvBytes_t;
+
+extern BME280_DataRecvBytes_t recvBytes;
+
+void BME280_Init(void);
+int32_t BME280_GetTemp(void);
+int32_t BME280_GetPress(void);
 
 #endif //BME280_LIB_H

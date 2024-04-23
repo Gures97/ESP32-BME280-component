@@ -10,18 +10,29 @@ All of calibration algorithms are from https://cdn-shop.adafruit.com/product-fil
 */
 
 BME280_CalibData_t calibData;
+BME280_DataRecvBytes_t recvBytes;
 
-static esp_err_t  askForRegisters(uint8_t address)
+static esp_err_t sendDataI2C(uint8_t* data, size_t size)
 {
     esp_err_t ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE, ACK_EN);
-    i2c_master_write_byte(cmd, address, ACK_EN);
+    i2c_master_write(cmd, data, size, ACK_EN);
     i2c_master_stop(cmd);
     ret = i2c_master_cmd_begin(BME280_I2C_NUM, cmd, BME280_TIMEOUT_TICKS);
     i2c_cmd_link_delete(cmd);
     return ret;
+}
+
+static esp_err_t  askForRegisters(uint8_t address)
+{
+    esp_err_t ret;
+    uint8_t data = {
+        BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
+        address
+    };
+
+    return sendDataI2C(data, sizeof(data));
 }
 
 static esp_err_t getReceivedData(uint8_t * buffer, size_t bufSize)
@@ -49,7 +60,7 @@ static esp_err_t getRegisters(uint8_t address, uint8_t * buffer, size_t bufSize)
     return ret;
 }
 
-esp_err_t BME280_get_calib_data(void)
+static esp_err_t getCalibData(void)
 {
     esp_err_t ret;
     uint8_t buf[26];
@@ -96,7 +107,7 @@ esp_err_t BME280_get_calib_data(void)
     return ret;
 }
 
-static esp_err_t i2c_master_BME280_read_temp(uint8_t *data_msb, uint8_t *data_lsb, uint8_t *data_xlsb)
+static esp_err_t readTemp(void)
 {
     esp_err_t ret;
     uint8_t buf[3];
@@ -106,14 +117,14 @@ static esp_err_t i2c_master_BME280_read_temp(uint8_t *data_msb, uint8_t *data_ls
         return ret;
     }
 
-    *data_msb = buf[0];
-    *data_lsb = buf[1];
-    *data_xlsb = buf[2];
+    recvBytes.data_msb = buf[0];
+    recvBytes.data_lsb = buf[1];
+    recvBytes.data_xlsb = buf[2];
 
     return ret;
 }
 
-static esp_err_t BME280_read_press(uint8_t *data_msb, uint8_t *data_lsb, uint8_t *data_xlsb)
+static esp_err_t BME280_read_press(void)
 {
     esp_err_t ret;
     uint8_t buf[3];
@@ -123,14 +134,14 @@ static esp_err_t BME280_read_press(uint8_t *data_msb, uint8_t *data_lsb, uint8_t
         return ret;
     }
 
-    *data_msb = buf[0];
-    *data_lsb = buf[1];
-    *data_xlsb = buf[2];
+    recvBytes.data_msb = buf[0];
+    recvBytes.data_lsb = buf[1];
+    recvBytes.data_xlsb = buf[2];
 
     return ret;
 }
 
-static esp_err_t BME280_read_hum(uint8_t *data_msb, uint8_t *data_lsb)
+static esp_err_t BME280_read_hum(void)
 {
     esp_err_t ret;
     uint8_t buf[2];
@@ -140,14 +151,14 @@ static esp_err_t BME280_read_hum(uint8_t *data_msb, uint8_t *data_lsb)
         return ret;
     }
 
-    *data_msb = buf[0];
-    *data_lsb = buf[1];
+    recvBytes.data_msb = buf[0];
+    recvBytes.data_lsb = buf[1];
 
     return ret;
 }
 
 int32_t t_fine;
-int32_t BME280_calibrate_temp(int32_t adc)
+static int32_t calibrateTemp(int32_t adc)
 {
     int32_t a, b, ret;
     a = (((adc>>3) - ((int32_t)calibData.dig_t1<<1)) * ((int32_t)calibData.dig_t2)) >> 11;
@@ -157,7 +168,7 @@ int32_t BME280_calibrate_temp(int32_t adc)
     return ret;
 }
 
-uint32_t BME280_calibrate_pressure(int32_t adc)
+static uint32_t calibratePress(int32_t adc)
 {
     int32_t a, b;
     uint32_t ret;
@@ -189,17 +200,50 @@ uint32_t BME280_calibrate_pressure(int32_t adc)
     return ret;
 }
 
-void BME280_measure(i2c_port_t i2c_num)
+static void initMeasure(void)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, BME280_SENSOR_ADDR << 1 | WRITE_BIT, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, 0xF2, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, 0x00, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, 0xF4, ACK_CHECK_EN);
-    i2c_master_write_byte(cmd, 0x20 + 0x04 + 0x01, ACK_CHECK_EN);//first osrs_t[7:5] second osrs_p[4:2] third mode[1:0]
-    i2c_master_stop(cmd);
-    i2c_master_cmd_begin(i2c_num, cmd, 1000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
+    uint8_t data = {
+        BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
+        0xF2,
+        0x00,
+        0xF4,
+        0x20 + 0x04 + 0x01 //first osrs_t[7:5] second osrs_p[4:2] third mode[1:0]
+    };
+
+    sendDataI2C(data, sizeof(data));
+}
+
+void BME280_Init(void)
+{
+    getCalibData();
+}
+
+int32_t BME280_GetTemp(void)
+{
+    uint32_t readValTemp;
+    int32_t tempResult;
+
+    initMeasure();
+
+    readTemp();
+    readValTemp = ((recvBytes.data_msb << 16) + (recvBytes.data_lsb << 8) + recvBytes.data_xlsb) >> 4;
+    tempResult = calibrateTemp(readValTemp);
+
+    return tempResult;
+}
+
+int32_t BME280_GetPress(void)
+{
+    uint32_t readValPress;
+    int32_t pressResult;
+
+    initMeasure();
+
+    readPress();
+    readValPress = ((recvBytes.data_msb << 16) + (recvBytes.data_lsb << 8) + recvBytes.data_xlsb) >> 4;
+    pressResult = calibratePress(readValPress);
+    
+    return pressResult;
 }
