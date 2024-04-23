@@ -1,5 +1,7 @@
 # ESP32 component for BME280
 
+> Component is currently not functional. Do not use it!
+
 This component allows to use BME280 sensor for your(my xD) ESP-IDF project. 
 
 All of calibration algorithms are from https://cdn-shop.adafruit.com/product-files/2652/2652.pdf
