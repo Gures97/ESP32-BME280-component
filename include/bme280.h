@@ -1,6 +1,8 @@
 #ifndef BME280_LIB_H
 #define BME280_LIB_H
 
+#include <stdint.h>
+
 #define ACK_EN  0x1
 #define ACK_DIS 0x0
 
@@ -28,6 +30,8 @@ typedef struct
     int8_t dig_h6;
 
 }BME280_CalibData_t;
+
+extern BME280_CalibData_t oldCalibData;
 
 typedef union{
     uint8_t buffer[33];

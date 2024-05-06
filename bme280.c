@@ -9,7 +9,7 @@
 All of calibration algorithms are from https://cdn-shop.adafruit.com/product-files/2652/2652.pdf
 */
 
-BME280_CalibData_t calibData;
+BME280_CalibData_t oldCalibData;
 BME280_DataRecvBytes_t recvBytes;
 
 static esp_err_t sendDataI2C(uint8_t* data, size_t size)
@@ -27,7 +27,7 @@ static esp_err_t sendDataI2C(uint8_t* data, size_t size)
 static esp_err_t  askForRegisters(uint8_t address)
 {
     esp_err_t ret;
-    uint8_t data = {
+    uint8_t data[] = {
         BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
         address
     };
@@ -71,18 +71,18 @@ static esp_err_t getCalibData(void)
         return ret;
     }
 
-    calibData.dig_t1 = (buf[1] << 8) + buf[0];
-    calibData.dig_t2 = (buf[3] << 8) + buf[2];
-    calibData.dig_t3 = (buf[5] << 8) + buf[4];
-    calibData.dig_p1 = (buf[7] << 8) + buf[6];
-    calibData.dig_p2 = (buf[9] << 8) + buf[8];
-    calibData.dig_p3 = (buf[11] << 8) + buf[10];
-    calibData.dig_p4 = (buf[13] << 8) + buf[12];
-    calibData.dig_p5 = (buf[15] << 8) + buf[14];
-    calibData.dig_p6 = (buf[17] << 8) + buf[16];
-    calibData.dig_p7 = (buf[19] << 8) + buf[18];
-    calibData.dig_p8 = (buf[21] << 8) + buf[20];
-    calibData.dig_p9 = (buf[23] << 8) + buf[22];
+    oldCalibData.dig_t1 = (buf[1] << 8) + buf[0];
+    oldCalibData.dig_t2 = (buf[3] << 8) + buf[2];
+    oldCalibData.dig_t3 = (buf[5] << 8) + buf[4];
+    oldCalibData.dig_p1 = (buf[7] << 8) + buf[6];
+    oldCalibData.dig_p2 = (buf[9] << 8) + buf[8];
+    oldCalibData.dig_p3 = (buf[11] << 8) + buf[10];
+    oldCalibData.dig_p4 = (buf[13] << 8) + buf[12];
+    oldCalibData.dig_p5 = (buf[15] << 8) + buf[14];
+    oldCalibData.dig_p6 = (buf[17] << 8) + buf[16];
+    oldCalibData.dig_p7 = (buf[19] << 8) + buf[18];
+    oldCalibData.dig_p8 = (buf[21] << 8) + buf[20];
+    oldCalibData.dig_p9 = (buf[23] << 8) + buf[22];
 
     //calib 0xA1
     ret = getRegisters(0xA1, buf, 1);
@@ -90,7 +90,7 @@ static esp_err_t getCalibData(void)
         return ret;
     }
 
-    calibData.dig_h1 = buf[0];
+    oldCalibData.dig_h1 = buf[0];
 
     //calib 0xE1 to 0xF0
     ret = getRegisters(0xE1, buf, 7);
@@ -98,11 +98,11 @@ static esp_err_t getCalibData(void)
         return ret;
     }
 
-    calibData.dig_h2 = (buf[1] << 8) + buf[0];
-    calibData.dig_h3 = buf[2];
-    calibData.dig_h4 = (buf[4] << 4) + (buf[3] & 0x0F);
-    calibData.dig_h5 = ((buf[3] & 0xF0) << 8) + buf[5];
-    calibData.dig_h6 = buf[6];
+    oldCalibData.dig_h2 = (buf[1] << 8) + buf[0];
+    oldCalibData.dig_h3 = buf[2];
+    oldCalibData.dig_h4 = (buf[4] << 4) + (buf[3] & 0x0F);
+    oldCalibData.dig_h5 = ((buf[3] & 0xF0) << 8) + buf[5];
+    oldCalibData.dig_h6 = buf[6];
 
     return ret;
 }
@@ -124,7 +124,7 @@ static esp_err_t readTemp(void)
     return ret;
 }
 
-static esp_err_t BME280_read_press(void)
+static esp_err_t readPress(void)
 {
     esp_err_t ret;
     uint8_t buf[3];
@@ -141,7 +141,7 @@ static esp_err_t BME280_read_press(void)
     return ret;
 }
 
-static esp_err_t BME280_read_hum(void)
+static esp_err_t readHum(void)
 {
     esp_err_t ret;
     uint8_t buf[2];
@@ -161,8 +161,8 @@ int32_t t_fine;
 static int32_t calibrateTemp(int32_t adc)
 {
     int32_t a, b, ret;
-    a = (((adc>>3) - ((int32_t)calibData.dig_t1<<1)) * ((int32_t)calibData.dig_t2)) >> 11;
-    b = ((((adc>>4) - ((int32_t)calibData.dig_t1)) * ((adc>>4) - ((int32_t)calibData.dig_t1))) >> 12 ) * ((int32_t)calibData.dig_t3) >> 14;
+    a = (((adc>>3) - ((int32_t)oldCalibData.dig_t1<<1)) * ((int32_t)oldCalibData.dig_t2)) >> 11;
+    b = ((((adc>>4) - ((int32_t)oldCalibData.dig_t1)) * ((adc>>4) - ((int32_t)oldCalibData.dig_t1))) >> 12 ) * ((int32_t)oldCalibData.dig_t3) >> 14;
     t_fine = a + b;
     ret = (t_fine * 5 + 128) >> 8;
     return ret;
@@ -173,11 +173,11 @@ static uint32_t calibratePress(int32_t adc)
     int32_t a, b;
     uint32_t ret;
     a = (((int32_t)t_fine) >> 1) - 64000;
-    b = (((a>>1) * (a>>1)) >> 11) * (int32_t)calibData.dig_p6;
-    b = b + ((a * ((int32_t)calibData.dig_p5)) << 1);
-    b = (b >> 2) + (((int32_t)calibData.dig_p4) << 16);
-    a = (((calibData.dig_p3 * (((a >> 2) * (a >> 2)) >> 13)) >> 3) + ((((int32_t)calibData.dig_p2) * a) >> 1)) >> 18;
-    a = ((((32768 + a))*((int32_t)calibData.dig_p1)) >> 15);
+    b = (((a>>1) * (a>>1)) >> 11) * (int32_t)oldCalibData.dig_p6;
+    b = b + ((a * ((int32_t)oldCalibData.dig_p5)) << 1);
+    b = (b >> 2) + (((int32_t)oldCalibData.dig_p4) << 16);
+    a = (((oldCalibData.dig_p3 * (((a >> 2) * (a >> 2)) >> 13)) >> 3) + ((((int32_t)oldCalibData.dig_p2) * a) >> 1)) >> 18;
+    a = ((((32768 + a))*((int32_t)oldCalibData.dig_p1)) >> 15);
     if(0 == a) 
     {
         return 0;
@@ -192,10 +192,10 @@ static uint32_t calibratePress(int32_t adc)
         ret = (ret / ((uint32_t)a)) * 2;
     }
 
-    a = (((int32_t)calibData.dig_p9) * ((int32_t)(((ret >> 3) * (ret >> 3)) >> 13))) >> 12;
-    b = (((int32_t)(ret >> 2)) * ((int32_t)calibData.dig_p8)) >> 13;
+    a = (((int32_t)oldCalibData.dig_p9) * ((int32_t)(((ret >> 3) * (ret >> 3)) >> 13))) >> 12;
+    b = (((int32_t)(ret >> 2)) * ((int32_t)oldCalibData.dig_p8)) >> 13;
 
-    ret = (uint32_t)((int32_t)ret + ((a + b + calibData.dig_p7) >> 4));
+    ret = (uint32_t)((int32_t)ret + ((a + b + oldCalibData.dig_p7) >> 4));
 
     return ret;
 }
@@ -204,7 +204,7 @@ static void initMeasure(void)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
-    uint8_t data = {
+    uint8_t data[] = {
         BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
         0xF2,
         0x00,
