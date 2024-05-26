@@ -92,5 +92,6 @@ extern BME280_DataRecvBytes_t recvBytes;
 void BME280_Init(void);
 int32_t BME280_GetTemp(void);
 int32_t BME280_GetPress(void);
+uint32_t BME280_GetHum(void);
 
 #endif //BME280_LIB_H

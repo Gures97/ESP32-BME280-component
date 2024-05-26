@@ -100,8 +100,8 @@ static esp_err_t getCalibData(void)
 
     oldCalibData.dig_h2 = (buf[1] << 8) + buf[0];
     oldCalibData.dig_h3 = buf[2];
-    oldCalibData.dig_h4 = (buf[4] << 4) + (buf[3] & 0x0F);
-    oldCalibData.dig_h5 = ((buf[3] & 0xF0) << 8) + buf[5];
+    oldCalibData.dig_h4 = (buf[3] << 4) + (buf[4] & 0x0F);
+    oldCalibData.dig_h5 = (buf[5] << 4) + ((buf[4] & 0xF0));
     oldCalibData.dig_h6 = buf[6];
 
     return ret;
@@ -200,6 +200,17 @@ static uint32_t calibratePress(int32_t adc)
     return ret;
 }
 
+static uint32_t calibrateHum(int32_t adc)
+{
+    int32_t v_x1;
+    v_x1 = (t_fine - ((int32_t)76800));
+    v_x1 = (((((adc << 14) - (((int32_t)oldCalibData.dig_h4) << 20) - (((int32_t)oldCalibData.dig_h5) * v_x1)) + ((int32_t)16384)) >> 15) * (((((((v_x1 * ((int32_t)oldCalibData.dig_h6)) >> 10) * (((v_x1 * ((int32_t)oldCalibData.dig_h3)) >> 11) + ((int32_t)32768))) >> 10) + ((int32_t)2097152)) * ((int32_t)oldCalibData.dig_h2) + 8192) >> 14));
+    v_x1 = (v_x1 - (((((v_x1 >> 15) * (v_x1 >> 15 )) >> 7) * ((int32_t)oldCalibData.dig_h1)) >> 4));
+    v_x1 = (v_x1 < 0 ? 0 : v_x1);
+    v_x1 = (v_x1 > 419430400 ? 419430400 : v_x1);
+    return (uint32_t)(v_x1>>12);
+}
+
 static void initMeasure(void)
 {
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -207,7 +218,7 @@ static void initMeasure(void)
     uint8_t data[] = {
         BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
         0xF2,
-        0x00,
+        0x01, //osrs_h [2:0]
         0xF4,
         0x20 + 0x04 + 0x01 //first osrs_t[7:5] second osrs_p[4:2] third mode[1:0]
     };
@@ -246,4 +257,18 @@ int32_t BME280_GetPress(void)
     pressResult = calibratePress(readValPress);
     
     return pressResult;
+}
+
+uint32_t BME280_GetHum(void)
+{
+    uint32_t readValHum;
+    uint32_t humResult;
+
+    initMeasure();
+
+    readHum();
+    readValHum = (recvBytes.data_msb << 8) + recvBytes.data_lsb;
+    humResult = calibrateHum(readValHum);
+    
+    return humResult;
 }
