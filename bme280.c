@@ -12,6 +12,24 @@ All of calibration algorithms are from https://cdn-shop.adafruit.com/product-fil
 BME280_CalibData_t oldCalibData;
 BME280_DataRecvBytes_t recvBytes;
 
+static esp_err_t i2c_master_init(void)
+{
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = CONFIG_BME280_SDA_GPIO,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_io_num = CONFIG_BME280_SCL_GPIO,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+        // .clk_flags = 0,          /*!< Optional, you can use I2C_SCLK_SRC_FLAG_* flags to choose i2c source clock here. */
+    };
+    esp_err_t err = i2c_param_config(BME280_I2C_PORT, &conf);
+    if (err != ESP_OK) {
+        return err;
+    }
+    return i2c_driver_install(BME280_I2C_PORT, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+}
+
 static esp_err_t sendDataI2C(uint8_t* data, size_t size)
 {
     esp_err_t ret;
@@ -19,7 +37,7 @@ static esp_err_t sendDataI2C(uint8_t* data, size_t size)
     i2c_master_start(cmd);
     i2c_master_write(cmd, data, size, ACK_EN);
     i2c_master_stop(cmd);
-    ret = i2c_master_cmd_begin(BME280_I2C_NUM, cmd, BME280_TIMEOUT_TICKS);
+    ret = i2c_master_cmd_begin(BME280_I2C_PORT, cmd, CONFIG_BME280_TIMEOUT_TICKS);
     i2c_cmd_link_delete(cmd);
     return ret;
 }
@@ -28,7 +46,7 @@ static esp_err_t  askForRegisters(uint8_t address)
 {
     esp_err_t ret;
     uint8_t data[] = {
-        BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
+        CONFIG_BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
         address
     };
 
@@ -40,10 +58,10 @@ static esp_err_t getReceivedData(uint8_t * buffer, size_t bufSize)
     esp_err_t ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, BME280_SENSOR_ADDR << 1 | I2C_MASTER_READ, ACK_EN);
+    i2c_master_write_byte(cmd, CONFIG_BME280_SENSOR_ADDR << 1 | I2C_MASTER_READ, ACK_EN);
     i2c_master_read(cmd, buffer,bufSize , I2C_MASTER_LAST_NACK);
     i2c_master_stop(cmd);
-    ret = i2c_master_cmd_begin(BME280_I2C_NUM, cmd, BME280_TIMEOUT_TICKS);
+    ret = i2c_master_cmd_begin(BME280_I2C_PORT, cmd, CONFIG_BME280_TIMEOUT_TICKS);
     i2c_cmd_link_delete(cmd);
     return ret;
 }
@@ -216,7 +234,7 @@ static void initMeasure(void)
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
     uint8_t data[] = {
-        BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
+        CONFIG_BME280_SENSOR_ADDR << 1 | I2C_MASTER_WRITE,
         0xF2,
         0x01, //osrs_h [2:0]
         0xF4,

@@ -1,0 +1,179 @@
+menu "BME280 Configuration"
+
+	config GPIO_RANGE_MAX
+		int
+		default 33 if IDF_TARGET_ESP32
+		default 46 if IDF_TARGET_ESP32S2
+		default 48 if IDF_TARGET_ESP32S3
+		default 18 if IDF_TARGET_ESP32C2
+		default 19 if IDF_TARGET_ESP32C3
+		default 30 if IDF_TARGET_ESP32C6
+		default 27 if IDF_TARGET_ESP32H2
+
+	choice BME280_INTERFACE
+		prompt "Interface"
+		default BME280_I2C_INTERFACE
+		help
+			Select Interface.
+		config BME280_I2C_INTERFACE
+			bool "I2C Interface"
+			help
+				I2C Interface.
+		config BME280_SPI_INTERFACE
+			bool "SPI Interface"
+			help
+				SPI Interface.
+	endchoice
+
+	config BME280_SENSOR_ADDR
+		depends on BME280_I2C_INTERFACE
+		hex "Sensor address"
+		default 0x76
+		help
+			Address of the device on I2C bus.
+
+    config BME280_I2C_MASTER_FREQUENCY
+        depends on BME280_I2C_INTERFACE
+        int "I2C Frequency"
+        default 100000
+        help
+            Frequency of I2C master.
+
+    config BME280_TIMEOUT_TICKS
+        depends on BME280_I2C_INTERFACE
+        int "I2C Timeout"
+        default 100
+        help
+            Timeout of I2C response.
+
+	config BME280_SCL_GPIO
+		depends on BME280_I2C_INTERFACE
+		int "SCL GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 22 if IDF_TARGET_ESP32
+		default  2 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+		default  2 if IDF_TARGET_ESP32H2
+		default  6 # C3 and others
+		help
+			GPIO number (IOxx) to I2C SCL.
+			Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to I2C.
+			GPIOs 35-39 are input-only so cannot be used as outputs.
+
+	config BME280_SDA_GPIO
+		depends on BME280_I2C_INTERFACE
+		int "SDA GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 21 if IDF_TARGET_ESP32
+		default  1 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+		default  1 if IDF_TARGET_ESP32H2
+		default  5 # C3 and others
+		help
+			GPIO number (IOxx) to I2C SDA.
+			Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to I2C.
+			GPIOs 35-39 are input-only so cannot be used as outputs.
+
+	config BME280_MOSI_GPIO
+		depends on BME280_SPI_INTERFACE
+		int "MOSI GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 23 if IDF_TARGET_ESP32
+		default 35 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+		default  1 # C3 and others
+		help
+			GPIO number (IOxx) to SPI MOSI.
+			Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to MOSI.
+			On the ESP32, GPIOs 35-39 are input-only so cannot be used as outputs.
+			On the ESP32-S2, GPIO 46 is input-only so cannot be used as outputs.
+
+	config BME280_SCLK_GPIO
+		depends on BME280_SPI_INTERFACE
+		int "SCLK GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default 18 if IDF_TARGET_ESP32
+		default 36 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+		default  2 # C3 and others
+		help
+			GPIO number (IOxx) to SPI SCLK.
+			Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to SCLK.
+			On the ESP32, GPIOs 35-39 are input-only so cannot be used as outputs.
+			On the ESP32-S2, GPIO 46 is input-only so cannot be used as outputs.
+
+	config BME280_CS_GPIO
+		depends on BME280_SPI_INTERFACE
+		int "CS GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default  5 if IDF_TARGET_ESP32
+		default 34 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+		default 10 # C3 and others
+		help
+			GPIO number (IOxx) to SPI CS.
+			Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to CS.
+			GPIOs 35-39 are input-only so cannot be used as outputs.
+
+	config BME280_DC_GPIO
+		depends on BME280_SPI_INTERFACE
+		int "DC GPIO number"
+		range 0 GPIO_RANGE_MAX
+		default  4 if IDF_TARGET_ESP32
+		default 37 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+		default  3 # C3 and others
+		help
+			GPIO number (IOxx) to SPI DC.
+			Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to DC.
+			GPIOs 35-39 are input-only so cannot be used as outputs.
+
+	config BME280_RESET_GPIO
+		int "RESET GPIO number"
+		range -1 GPIO_RANGE_MAX
+		default 15 if IDF_TARGET_ESP32
+		default 38 if IDF_TARGET_ESP32S2 || IDF_TARGET_ESP32S3
+		default  4 # C3 and others
+		help
+			GPIO number (IOxx) to RESET.
+			When it is -1, RESET isn't performed.
+			Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used to RESET.
+			GPIOs 35-39 are input-only so cannot be used as outputs.
+
+	choice BME280_I2C_PORT
+		depends on BME280_I2C_INTERFACE
+		prompt "I2C port that controls this bus"
+		default BME280_I2C_PORT_0
+		help
+			Select I2C port that controls this bus.
+		config BME280_I2C_PORT_0
+			bool "I2C_PORT_0"
+			help
+				Use I2C_PORT_0.
+		config BME280_I2C_PORT_1
+			depends on IDF_TARGET_ARCH_XTENSA
+			bool "I2C_PORT_1"
+			help
+				Use I2C_PORT_1.
+	endchoice
+
+	config BME280_LEGACY_DRIVER
+		depends on BME280_I2C_INTERFACE
+		bool "Force legacy i2c driver"
+		default false
+		help
+			Force legacy i2c driver.
+
+	choice BME280_SPI_HOST
+		depends on BME280_SPI_INTERFACE
+		prompt "SPI peripheral that controls this bus"
+		default BME280_SPI2_HOST
+		help
+			Select SPI peripheral that controls this bus.
+		config BME280_SPI2_HOST
+			bool "SPI2_HOST"
+			help
+				Use SPI2_HOST. This is also called HSPI_HOST.
+		config BME280_SPI3_HOST
+			depends on IDF_TARGET_ARCH_XTENSA
+			bool "SPI3_HOST"
+			help
+				USE SPI3_HOST. This is also called VSPI_HOST
+	endchoice
+
+endmenu
+

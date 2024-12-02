@@ -6,6 +6,14 @@
 #define ACK_EN  0x1
 #define ACK_DIS 0x0
 
+#if CONFIG_BME280_I2C_PORT_0
+#define BME280_I2C_PORT I2C_NUM_0
+#elif CONFIG_BME280_I2C_PORT_1
+#define BME280_I2C_PORT I2C_NUM_1
+#else
+#define BME280_I2C_PORT I2C_NUM_0 // if spi is selected
+#endif
+
 typedef struct 
 {
     uint16_t dig_t1;
