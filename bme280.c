@@ -20,14 +20,14 @@ static esp_err_t i2c_master_init(void)
         .sda_pullup_en = GPIO_PULLUP_ENABLE,
         .scl_io_num = CONFIG_BME280_SCL_GPIO,
         .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+        .master.clk_speed = CONFIG_BME280_I2C_MASTER_FREQUENCY,
         // .clk_flags = 0,          /*!< Optional, you can use I2C_SCLK_SRC_FLAG_* flags to choose i2c source clock here. */
     };
     esp_err_t err = i2c_param_config(BME280_I2C_PORT, &conf);
     if (err != ESP_OK) {
         return err;
     }
-    return i2c_driver_install(BME280_I2C_PORT, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    return i2c_driver_install(BME280_I2C_PORT, conf.mode, BME280_IGNORED, BME280_IGNORED, 0);
 }
 
 static esp_err_t sendDataI2C(uint8_t* data, size_t size)
@@ -246,6 +246,7 @@ static void initMeasure(void)
 
 void BME280_Init(void)
 {
+    i2c_master_init();
     getCalibData();
 }
 

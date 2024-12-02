@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 
-#define ACK_EN  0x1
-#define ACK_DIS 0x0
+#define BME280_ACK_EN  0x1
+#define BME280_ACK_DIS 0x0
+#define BME280_IGNORED 0
 
 #if CONFIG_BME280_I2C_PORT_0
 #define BME280_I2C_PORT I2C_NUM_0
